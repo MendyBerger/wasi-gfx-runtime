@@ -259,61 +259,62 @@ impl<T: WasiWebGpuView> webgpu::HostNonStandardBuffer for WasiWebGpuImpl<T> {
 
 impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
     fn connect_graphics_context(&mut self, device: Resource<Device>, context: Resource<Context>) {
-        let device = self.table().get(&device).unwrap();
-        let device_id = device.device;
-        let adapter_id = device.adapter;
+        // let device = self.table().get(&device).unwrap();
+        // let device_id = device.device;
+        // let adapter_id = device.adapter;
 
-        let instance = Arc::downgrade(&self.instance());
-        let surface_creator = self.ui_thread_spawner();
+        // let instance = Arc::downgrade(&self.instance());
+        // let surface_creator = self.ui_thread_spawner();
 
-        let context = self.table().get_mut(&context).unwrap();
+        // let context = self.table().get_mut(&context).unwrap();
 
-        let surface = WebGpuSurface {
-            get_instance: {
-                let instance = instance.clone();
-                move || instance.upgrade().unwrap()
-            },
-            create_surface: {
-                let instance = instance.clone();
-                move |display: &(dyn DisplayApi + Send + Sync)| {
-                    let instance = instance.upgrade().unwrap();
+        // let surface = WebGpuSurface {
+        //     get_instance: {
+        //         let instance = instance.clone();
+        //         move || instance.upgrade().unwrap()
+        //     },
+        //     create_surface: {
+        //         let instance = instance.clone();
+        //         move |display: &(dyn DisplayApi + Send + Sync)| {
+        //             let instance = instance.upgrade().unwrap();
 
-                    // TODO: make spawn behave similar to `std::thread::scope` so that we don't have to unsafely transmute display to `&'static`.
-                    // Something like the following:
-                    // ```rust
-                    // let surface_id = std::thread::scope(|s| {
-                    //     s.spawn(move || unsafe {
-                    //         instance
-                    //             .instance_create_surface(
-                    //                 display.display_handle().unwrap().as_raw(),
-                    //                 display.window_handle().unwrap().as_raw(),
-                    //                 None,
-                    //             )
-                    //             .unwrap()
-                    //     }).join().unwrap()
-                    // });
-                    // surface_id
-                    // ```
+        //             // TODO: make spawn behave similar to `std::thread::scope` so that we don't have to unsafely transmute display to `&'static`.
+        //             // Something like the following:
+        //             // ```rust
+        //             // let surface_id = std::thread::scope(|s| {
+        //             //     s.spawn(move || unsafe {
+        //             //         instance
+        //             //             .instance_create_surface(
+        //             //                 display.display_handle().unwrap().as_raw(),
+        //             //                 display.window_handle().unwrap().as_raw(),
+        //             //                 None,
+        //             //             )
+        //             //             .unwrap()
+        //             //     }).join().unwrap()
+        //             // });
+        //             // surface_id
+        //             // ```
 
-                    let display: &'static (dyn DisplayApi + Send + Sync) =
-                        unsafe { mem::transmute(display) };
-                    block_on(surface_creator.spawn(move || unsafe {
-                        instance
-                            .instance_create_surface(
-                                display.display_handle().unwrap().as_raw(),
-                                display.window_handle().unwrap().as_raw(),
-                                None,
-                            )
-                            .unwrap()
-                    }))
-                }
-            },
-            device_id,
-            adapter_id,
-            surface_id: None,
-        };
+        //             let display: &'static (dyn DisplayApi + Send + Sync) =
+        //                 unsafe { mem::transmute(display) };
+        //             block_on(surface_creator.spawn(move || unsafe {
+        //                 instance
+        //                     .instance_create_surface(
+        //                         display.display_handle().unwrap().as_raw(),
+        //                         display.window_handle().unwrap().as_raw(),
+        //                         None,
+        //                     )
+        //                     .unwrap()
+        //             }))
+        //         }
+        //     },
+        //     device_id,
+        //     adapter_id,
+        //     surface_id: None,
+        //     texture_id: None,
+        // };
 
-        context.connect_draw_api(Box::new(surface));
+        // context.connect_draw_api(Box::new(surface));
     }
 
     fn configure(
@@ -332,14 +333,13 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         let device = self.table().get(&device).unwrap().device;
 
         let command_encoder = core_result(
-            self.instance()
-                .device_create_command_encoder(
-                    device,
-                    &descriptor
-                        .map(|d| d.to_core(&self.table()))
-                        .unwrap_or(wgpu_types::CommandEncoderDescriptor::default()),
-                    None,
-                ),
+            self.instance().device_create_command_encoder(
+                device,
+                &descriptor
+                    .map(|d| d.to_core(&self.table()))
+                    .unwrap_or(wgpu_types::CommandEncoderDescriptor::default()),
+                None,
+            ),
         )
         .unwrap();
 
@@ -355,15 +355,12 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
 
         let code =
             wgpu_core::pipeline::ShaderModuleSource::Wgsl(Cow::Owned(descriptor.code.to_owned()));
-        let shader = core_result(
-            self.instance()
-                .device_create_shader_module(
-                    device,
-                    &descriptor.to_core(&self.table()),
-                    code,
-                    None,
-                ),
-        )
+        let shader = core_result(self.instance().device_create_shader_module(
+            device,
+            &descriptor.to_core(&self.table()),
+            code,
+            None,
+        ))
         .unwrap();
 
         self.table().push(shader).unwrap()
@@ -375,15 +372,12 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         descriptor: webgpu::GpuRenderPipelineDescriptor,
     ) -> Resource<wgpu_core::id::RenderPipelineId> {
         let host_device = self.table().get(&device).unwrap().device;
-        let render_pipeline = core_result(
-            self.instance()
-                .device_create_render_pipeline(
-                    host_device,
-                    &descriptor.to_core(&self.table()),
-                    None,
-                    None,
-                ),
-        )
+        let render_pipeline = core_result(self.instance().device_create_render_pipeline(
+            host_device,
+            &descriptor.to_core(&self.table()),
+            None,
+            None,
+        ))
         .unwrap();
 
         self.table().push_child(render_pipeline, &device).unwrap()
@@ -399,10 +393,8 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         device: Resource<webgpu::GpuDevice>,
     ) -> Resource<webgpu::GpuSupportedFeatures> {
         let device = self.table().get(&device).unwrap().device;
-        let features = self
-            .instance()
-            .device_features(device);
-            // .unwrap();
+        let features = self.instance().device_features(device);
+        // .unwrap();
         self.table().push(features).unwrap()
     }
 
@@ -411,10 +403,8 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         device: Resource<webgpu::GpuDevice>,
     ) -> Resource<webgpu::GpuSupportedLimits> {
         let device = self.table().get(&device).unwrap().device;
-        let limits = self
-            .instance()
-            .device_limits(device);
-            // .unwrap();
+        let limits = self.instance().device_limits(device);
+        // .unwrap();
         self.table().push(limits).unwrap()
     }
 
@@ -484,11 +474,10 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
                 border_color: None,
             });
 
-        let sampler = core_result(self.instance().device_create_sampler(
-            device,
-            &descriptor,
-            None,
-        ))
+        let sampler = core_result(
+            self.instance()
+                .device_create_sampler(device, &descriptor, None),
+        )
         .unwrap();
 
         self.table().push(sampler).unwrap()
@@ -501,14 +490,11 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
     ) -> Resource<webgpu::GpuBindGroupLayout> {
         let device = self.table().get(&device).unwrap().device;
 
-        let bind_group_layout = core_result(
-            self.instance()
-                .device_create_bind_group_layout(
-                    device,
-                    &descriptor.to_core(&self.table()),
-                    None,
-                ),
-        )
+        let bind_group_layout = core_result(self.instance().device_create_bind_group_layout(
+            device,
+            &descriptor.to_core(&self.table()),
+            None,
+        ))
         .unwrap();
 
         self.table().push(bind_group_layout).unwrap()
@@ -521,14 +507,11 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
     ) -> Resource<webgpu::GpuPipelineLayout> {
         let device = self.table().get(&device).unwrap().device;
 
-        let pipeline_layout = core_result(
-            self.instance()
-                .device_create_pipeline_layout(
-                    device,
-                    &descriptor.to_core(&self.table()),
-                    None,
-                ),
-        )
+        let pipeline_layout = core_result(self.instance().device_create_pipeline_layout(
+            device,
+            &descriptor.to_core(&self.table()),
+            None,
+        ))
         .unwrap();
 
         self.table().push(pipeline_layout).unwrap()
@@ -557,15 +540,12 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         descriptor: webgpu::GpuComputePipelineDescriptor,
     ) -> Resource<webgpu::GpuComputePipeline> {
         let device = self.table().get(&device).unwrap().device;
-        let compute_pipeline = core_result(
-            self.instance()
-                .device_create_compute_pipeline(
-                    device,
-                    &descriptor.to_core(&self.table()),
-                    None,
-                    None,
-                ),
-        )
+        let compute_pipeline = core_result(self.instance().device_create_compute_pipeline(
+            device,
+            &descriptor.to_core(&self.table()),
+            None,
+            None,
+        ))
         .unwrap();
         self.table().push(compute_pipeline).unwrap()
     }
@@ -650,8 +630,8 @@ impl<T: WasiWebGpuView> webgpu::HostGpuDevice for WasiWebGpuImpl<T> {
         todo!()
     }
 
-    fn drop(&mut self, device: Resource<webgpu::GpuDevice>) -> wasmtime::Result<()> {
-        self.table().delete(device).unwrap();
+    fn drop(&mut self, _device: Resource<webgpu::GpuDevice>) -> wasmtime::Result<()> {
+        // self.table().delete(device).unwrap();
         Ok(())
     }
 }
@@ -687,9 +667,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuTexture for WasiWebGpuImpl<T> {
 
     fn destroy(&mut self, texture: Resource<webgpu::GpuTexture>) {
         let texture_id = *self.table().get(&texture).unwrap();
-        self.instance()
-            .texture_destroy(texture_id)
-            .unwrap();
+        self.instance().texture_destroy(texture_id).unwrap();
     }
 
     fn width(&mut self, _self_: Resource<webgpu::GpuTexture>) -> webgpu::GpuIntegerCoordinateOut {
@@ -811,10 +789,11 @@ impl<T: WasiWebGpuView> webgpu::HostGpuRenderPipeline for WasiWebGpuImpl<T> {
         index: u32,
     ) -> Resource<webgpu::GpuBindGroupLayout> {
         let pipeline_id = *self.table().get(&pipeline).unwrap();
-        let layout = core_result(
-            self.instance()
-                .render_pipeline_get_bind_group_layout(pipeline_id, index, None),
-        )
+        let layout = core_result(self.instance().render_pipeline_get_bind_group_layout(
+            pipeline_id,
+            index,
+            None,
+        ))
         .unwrap();
         self.table().push(layout).unwrap()
     }
@@ -831,36 +810,48 @@ impl<T: WasiWebGpuView> webgpu::HostGpuAdapter for WasiWebGpuImpl<T> {
         adapter: Resource<wgpu_core::id::AdapterId>,
         descriptor: Option<webgpu::GpuDeviceDescriptor>,
     ) -> Resource<webgpu::GpuDevice> {
+        println!("request_device");
         let adapter_id = *self.table().get(&adapter).unwrap();
 
-        // let (device_id, queue_id) = self.instance().adapter_request_device(
-        //     adapter_id,
-        //     &descriptor
-        //         .map(|d| d.to_core(&self.table()))
-        //         .unwrap_or(wgpu_types::DeviceDescriptor::default()),
-        //     None,
-        //     None,// is this it?
-        //     None,
-        // ).unwrap();
-        let surface_creator = self.ui_thread_spawner();
+        let (device_id, queue_id) = match self.new_device_created() {
+            Some(ids) => ids,
+            None => {
+                let (device_id, queue_id) = self
+                    .instance()
+                    .adapter_request_device(
+                        adapter_id,
+                        &descriptor
+                            .map(|d| d.to_core(&self.table()))
+                            .unwrap_or(wgpu_types::DeviceDescriptor::default()),
+                        None,
+                        None, // is this it?
+                        None,
+                    )
+                    .unwrap();
+                (device_id, queue_id)
+            },
+        };
 
 
-        let hal_device = surface_creator.request_device_called(Arc::downgrade(&self.instance()), adapter_id).unwrap();
 
-        let (device_id, queue_id) = //core_results_2({
-            unsafe {
-                self.instance().create_device_from_hal(
-                    adapter_id,
-                    hal_device.into(), // TODO: ?????
-                    &descriptor
-                        .map(|d| d.to_core(&self.table()))
-                        .unwrap_or(wgpu_types::DeviceDescriptor::default()),
-                    None,
-                    None,
-                    None
-                ).unwrap()
-            };
-        // }).unwrap();
+        // let surface_creator = self.ui_thread_spawner();
+
+        // let hal_device = surface_creator.request_device_called(Arc::downgrade(&self.instance()), adapter_id).unwrap();
+
+        // let (device_id, queue_id) = //core_results_2({
+        //     unsafe {
+        //         self.instance().create_device_from_hal(
+        //             adapter_id,
+        //             hal_device.into(), // TODO: ?????
+        //             &descriptor
+        //                 .map(|d| d.to_core(&self.table()))
+        //                 .unwrap_or(wgpu_types::DeviceDescriptor::default()),
+        //             None,
+        //             None,
+        //             None
+        //         ).unwrap()
+        //     };
+        // // }).unwrap();
 
         let device = self
             .table()
@@ -879,9 +870,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuAdapter for WasiWebGpuImpl<T> {
         adapter: wasmtime::component::Resource<wgpu_core::id::AdapterId>,
     ) -> wasmtime::component::Resource<webgpu::GpuSupportedFeatures> {
         let adapter = *self.table().get(&adapter).unwrap();
-        let features = self
-            .instance()
-            .adapter_features(adapter);
+        let features = self.instance().adapter_features(adapter);
         self.table().push(features).unwrap()
     }
 
@@ -890,10 +879,8 @@ impl<T: WasiWebGpuView> webgpu::HostGpuAdapter for WasiWebGpuImpl<T> {
         adapter: Resource<wgpu_core::id::AdapterId>,
     ) -> Resource<webgpu::GpuSupportedLimits> {
         let adapter = *self.table().get(&adapter).unwrap();
-        let limits = self
-            .instance()
-            .adapter_limits(adapter);
-            // .unwrap();
+        let limits = self.instance().adapter_limits(adapter);
+        // .unwrap();
         self.table().push(limits).unwrap()
     }
 
@@ -909,9 +896,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuAdapter for WasiWebGpuImpl<T> {
         adapter: Resource<wgpu_core::id::AdapterId>,
     ) -> Resource<webgpu::GpuAdapterInfo> {
         let adapter_id = *self.table().get(&adapter).unwrap();
-        let info = self
-            .instance()
-            .adapter_get_info(adapter_id);
+        let info = self.instance().adapter_get_info(adapter_id);
         let info = self.table().push(info).unwrap();
         info
     }
@@ -1066,22 +1051,21 @@ impl<T: WasiWebGpuView> webgpu::HostGpuCommandEncoder for WasiWebGpuImpl<T> {
     ) -> Resource<webgpu::GpuComputePassEncoder> {
         let command_encoder = *self.table().get(&command_encoder).unwrap();
         let compute_pass = core_result_t(
-            self.instance()
-                .command_encoder_create_compute_pass(
-                    command_encoder,
-                    // can't use to_core because timestamp_writes is Option<&x>.
-                    &wgpu_core::command::ComputePassDescriptor {
-                        // TODO: can we get rid of the clone here?
-                        label: descriptor
-                            .as_ref()
-                            .map(|d| d.label.clone().map(|l| l.into()))
-                            .flatten(),
-                        timestamp_writes: descriptor
-                            .map(|d| d.timestamp_writes.map(|tw| tw.to_core(&self.table())))
-                            .flatten()
-                            .as_ref(),
-                    },
-                ),
+            self.instance().command_encoder_create_compute_pass(
+                command_encoder,
+                // can't use to_core because timestamp_writes is Option<&x>.
+                &wgpu_core::command::ComputePassDescriptor {
+                    // TODO: can we get rid of the clone here?
+                    label: descriptor
+                        .as_ref()
+                        .map(|d| d.label.clone().map(|l| l.into()))
+                        .flatten(),
+                    timestamp_writes: descriptor
+                        .map(|d| d.timestamp_writes.map(|tw| tw.to_core(&self.table())))
+                        .flatten()
+                        .as_ref(),
+                },
+            ),
         )
         .unwrap();
         self.table()
@@ -1271,9 +1255,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuRenderPassEncoder for WasiWebGpuImpl<T> {
         let instance = self.instance();
         let mut render_pass = self.table().get_mut(&render_pass).unwrap().lock();
         let mut render_pass = render_pass.take().unwrap();
-        instance
-            .render_pass_end(&mut render_pass)
-            .unwrap();
+        instance.render_pass_end(&mut render_pass).unwrap();
     }
 
     fn set_viewport(
@@ -1385,7 +1367,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuRenderPassEncoder for WasiWebGpuImpl<T> {
             .render_pass_set_bind_group(
                 &mut render_pass,
                 index,
-                Some(bind_group),  // TODO: ?????
+                Some(bind_group), // TODO: ?????
                 &dynamic_offsets.unwrap_or(vec![]),
             )
             .unwrap()
@@ -1679,9 +1661,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuComputePassEncoder for WasiWebGpuImpl<T> 
         let instance = self.instance();
         let mut compute_pass = self.table().get_mut(&compute_pass).unwrap().lock();
         let mut compute_pass = compute_pass.take().unwrap();
-        instance
-            .compute_pass_end(&mut compute_pass)
-            .unwrap();
+        instance.compute_pass_end(&mut compute_pass).unwrap();
     }
 
     fn label(&mut self, _self_: Resource<webgpu::GpuComputePassEncoder>) -> String {
@@ -2135,9 +2115,7 @@ impl<T: WasiWebGpuView> webgpu::HostGpuBuffer for WasiWebGpuImpl<T> {
 
     fn unmap(&mut self, buffer: Resource<webgpu::GpuBuffer>) {
         let buffer_id = self.table().get_mut(&buffer).unwrap().buffer_id;
-        self.instance()
-            .buffer_unmap(buffer_id)
-            .unwrap();
+        self.instance().buffer_unmap(buffer_id).unwrap();
     }
 
     fn destroy(&mut self, _self_: Resource<webgpu::GpuBuffer>) {
@@ -2182,10 +2160,10 @@ impl<T: WasiWebGpuView> webgpu::HostGpu for WasiWebGpuImpl<T> {
         _gpu: Resource<webgpu::Gpu>,
     ) -> webgpu::GpuTextureFormat {
         // https://searchfox.org/mozilla-central/source/dom/webgpu/Instance.h#42
-        #[cfg(target_os = "android")]
+        // #[cfg(target_os = "android")]
         return webgpu::GpuTextureFormat::Rgba8unorm;
-        #[cfg(not(target_os = "android"))]
-        return webgpu::GpuTextureFormat::Bgra8unorm;
+        // #[cfg(not(target_os = "android"))]
+        // return webgpu::GpuTextureFormat::Bgra8unorm;
     }
 
     fn wgsl_language_features(
@@ -2509,16 +2487,16 @@ fn core_result_t<T, E>((t, error): (T, Option<E>)) -> Result<T, E> {
     }
 }
 
-// same as core_result, but handles tuple of two ids for Ok.
-fn core_results_2<I1, I2, E>(
-    (a, b, error): (wgpu_core::id::Id<I1>, wgpu_core::id::Id<I2>, Option<E>),
-) -> Result<(wgpu_core::id::Id<I1>, wgpu_core::id::Id<I2>), E>
-where
-    I1: wgpu_core::id::Marker,
-    I2: wgpu_core::id::Marker,
-{
-    match error {
-        Some(error) => Err(error),
-        None => Ok((a, b)),
-    }
-}
+// // same as core_result, but handles tuple of two ids for Ok.
+// fn core_results_2<I1, I2, E>(
+//     (a, b, error): (wgpu_core::id::Id<I1>, wgpu_core::id::Id<I2>, Option<E>),
+// ) -> Result<(wgpu_core::id::Id<I1>, wgpu_core::id::Id<I2>), E>
+// where
+//     I1: wgpu_core::id::Marker,
+//     I2: wgpu_core::id::Marker,
+// {
+//     match error {
+//         Some(error) => Err(error),
+//         None => Ok((a, b)),
+//     }
+// }

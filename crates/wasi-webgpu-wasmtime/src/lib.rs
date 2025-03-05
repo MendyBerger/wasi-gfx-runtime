@@ -4,7 +4,10 @@
 // - Remove all unwraps.
 // - Implement all the drop handlers.
 
-use std::{future::Future, sync::{Arc, Weak}};
+use std::{
+    future::Future,
+    sync::{Arc, Weak},
+};
 
 use wasi_graphics_context_wasmtime::{AbstractBuffer, DisplayApi, DrawApi};
 use wasmtime_wasi::WasiView;
@@ -99,11 +102,14 @@ where
 }
 
 pub trait WasiWebGpuView: WasiView {
+    // TODO: can this be changed to return AsRef<wgpu_core::global::Global>
     fn instance(&self) -> Arc<wgpu_core::global::Global>;
 
     /// Provide the ability to run closure on the UI thread.
     /// On platforms that don't require UI to run on the UI thread, this can just execute in place.
     fn ui_thread_spawner(&self) -> Box<impl MainThreadSpawner>;
+    // fn new_device_created(&mut self, _device_id: wgpu_core::id::DeviceId);
+    fn new_device_created(&mut self) -> Option<(wgpu_core::id::DeviceId, wgpu_core::id::QueueId)>;
 }
 
 pub struct WasiWebGpuImpl<T>(pub T);
@@ -126,15 +132,22 @@ impl<T: WasiWebGpuView> WasiWebGpuView for WasiWebGpuImpl<T> {
     fn ui_thread_spawner(&self) -> Box<impl MainThreadSpawner + 'static> {
         self.0.ui_thread_spawner()
     }
+
+    fn new_device_created(&mut self) -> Option<(wgpu_core::id::DeviceId, wgpu_core::id::QueueId)> {
+        self.0.new_device_created()
+    }
 }
 
 impl<T: ?Sized + WasiWebGpuView> WasiWebGpuView for &mut T {
     fn instance(&self) -> Arc<wgpu_core::global::Global> {
         T::instance(self)
     }
-
     fn ui_thread_spawner(&self) -> Box<impl MainThreadSpawner + 'static> {
         T::ui_thread_spawner(self)
+    }
+
+    fn new_device_created(&mut self) -> Option<(wgpu_core::id::DeviceId, wgpu_core::id::QueueId)> {
+        T::new_device_created(self)
     }
 }
 
@@ -144,7 +157,12 @@ pub trait MainThreadSpawner: Send + Sync + 'static {
         F: FnOnce() -> T + Send + Sync + 'static,
         T: Send + Sync + 'static;
 
-    fn request_device_called(&self, _core_instance: Weak<wgpu_core::global::Global>, _adapter_id: wgpu_core::id::AdapterId) -> Option<wgpu_hal::OpenDevice<crate::Backend>> {
+    // TODO: move to WasiWebGpuView?
+    fn request_device_called(
+        &self,
+        _core_instance: Weak<wgpu_core::global::Global>,
+        _adapter_id: wgpu_core::id::AdapterId,
+    ) -> Option<wgpu_hal::OpenDevice<crate::Backend>> {
         None
     }
 }
@@ -160,6 +178,8 @@ where
     device_id: wgpu_core::id::DeviceId,
     adapter_id: wgpu_core::id::AdapterId,
     surface_id: Option<wgpu_core::id::SurfaceId>,
+
+    pub texture_id: Option<wgpu_core::id::TextureId>,
 }
 
 impl<GI, CS, I> DrawApi for WebGpuSurface<GI, CS, I>
@@ -169,12 +189,51 @@ where
     CS: Fn(&(dyn DisplayApi + Send + Sync)) -> SurfaceId,
 {
     fn get_current_buffer(&mut self) -> wasmtime::Result<AbstractBuffer> {
-        let texture: wgpu_core::id::TextureId = (self.get_instance)()
-            .as_ref()
-            .surface_get_current_texture(self.surface_id.unwrap(), None)
-            .unwrap()
-            .texture_id
-            .unwrap();
+        // let texture: wgpu_core::id::TextureId = (self.get_instance)()
+        //     .as_ref()
+        //     .surface_get_current_texture(self.surface_id.unwrap(), None)
+        //     .unwrap()
+        //     .texture_id
+        //     .unwrap();
+
+
+        let texture = match self.texture_id {
+            Some(texture_id) => texture_id,
+            None => {
+                const RENDER_WIDTH: u32 = 1920;
+                const RENDER_HEIGHT: u32 = 1080;
+
+                let (texture, error) = (self.get_instance)().as_ref().device_create_texture(
+                    self.device_id,
+                    &wgpu_core::resource::TextureDescriptor {
+                        label: None,
+                        size: wgpu_types::Extent3d {
+                            width: RENDER_WIDTH,
+                            height: RENDER_HEIGHT,
+                            depth_or_array_layers: 1,
+                        },
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu_types::TextureDimension::D2,
+                        format: wgpu_types::TextureFormat::Bgra8UnormSrgb,
+                        usage: wgpu_types::TextureUsages::RENDER_ATTACHMENT,
+                        view_formats: vec![]
+                    },
+                    None,
+                );
+                if error.is_some() {
+                    panic!("error creating texture\n{error:?}");
+                }
+                self.texture_id = Some(texture);
+                texture
+
+            },
+        };
+
+        // (self.get_instance)().as_ref().texture_as_hal(texture, |texture| {
+        //     texture.unwrap()
+        // });
+
         let buff = Box::new(texture);
         let buff: AbstractBuffer = buff.into();
         Ok(buff)
@@ -183,8 +242,8 @@ where
     fn present(&mut self) -> wasmtime::Result<()> {
         (self.get_instance)()
             .as_ref()
-            .surface_present(self.surface_id.unwrap())
-            .unwrap();
+            .surface_present(self.surface_id.unwrap());
+            // .unwrap();
         Ok(())
     }
 
@@ -209,9 +268,9 @@ where
             desired_maximum_frame_latency: 2,
         };
 
-        (self.get_instance)()
-            .as_ref()
-            .surface_configure(surface_id, self.device_id, &config);
+        // (self.get_instance)()
+        //     .as_ref()
+        //     .surface_configure(surface_id, self.device_id, &config);
 
         self.surface_id = Some(surface_id);
     }

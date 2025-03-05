@@ -70,6 +70,7 @@ pub trait DrawApi {
     fn display_api_ready(&mut self, display_api: &Box<dyn DisplayApi + Send + Sync>);
 }
 
+// pub trait DisplayApi: HasDisplayHandle + HasWindowHandle {
 pub trait DisplayApi: HasDisplayHandle + HasWindowHandle {
     fn height(&self) -> u32;
     fn width(&self) -> u32;
@@ -115,7 +116,15 @@ where
     Ok(())
 }
 
-pub trait WasiGraphicsContextView: WasiView {}
+pub trait WasiGraphicsContextView: WasiView {
+    fn get_current_buffer_called(&self) -> Option<AbstractBuffer> {
+        None
+    }
+    // return some if present is handled from the outside
+    fn present_called(&self) -> Option<()> {
+        None
+    }
+}
 
 impl graphics_context::Host for dyn WasiGraphicsContextView + '_ {}
 
@@ -125,21 +134,32 @@ impl graphics_context::HostContext for dyn WasiGraphicsContextView + '_ {
     }
 
     fn get_current_buffer(&mut self, context: Resource<Context>) -> Resource<AbstractBuffer> {
-        let context_kind = self.table().get_mut(&context).unwrap();
-        let next_frame = context_kind
-            .draw_api
-            .as_mut()
-            .expect("draw_api not set")
-            .get_current_buffer()
-            .unwrap();
+        // println!("get_current_buffer");
+        let next_frame = if let Some(buffer) = self.get_current_buffer_called() {
+            // println!("get_current_buffer");
+
+            buffer
+        } else {
+            println!("should not be here");
+            let context = self.table().get_mut(&context).unwrap();
+            context
+                .draw_api
+                .as_mut()
+                .expect("draw_api not set")
+                .get_current_buffer()
+                .unwrap()
+        };
+
         let next_frame = self.table().push(next_frame).unwrap();
         next_frame
     }
 
     fn present(&mut self, context: Resource<Context>) {
-        let context = self.table().get_mut(&context).unwrap();
-        // context.display_api.as_mut().unwrap().present().unwrap();
-        context.draw_api.as_mut().unwrap().present().unwrap();
+        if let None = self.present_called() {
+            let context = self.table().get_mut(&context).unwrap();
+            // context.display_api.as_mut().unwrap().present().unwrap();
+            context.draw_api.as_mut().unwrap().present().unwrap();
+        }
     }
 
     fn drop(&mut self, _graphics_context: Resource<Context>) -> wasmtime::Result<()> {
@@ -150,6 +170,7 @@ impl graphics_context::HostContext for dyn WasiGraphicsContextView + '_ {
 
 impl graphics_context::HostAbstractBuffer for dyn WasiGraphicsContextView + '_ {
     fn drop(&mut self, _rep: Resource<AbstractBuffer>) -> wasmtime::Result<()> {
-        todo!()
+        // todo!()
+        Ok(())
     }
 }

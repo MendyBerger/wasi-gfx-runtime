@@ -3,8 +3,6 @@ use std::{
     collections::HashMap,
     fmt::Debug,
     sync::{Arc, Mutex},
-    thread::{self, sleep},
-    time::Duration,
 };
 
 use crate::{MiniCanvas, MiniCanvasDesc, MiniCanvasProxy};
@@ -43,15 +41,15 @@ impl WasiWinitEventLoop {
     pub fn run(self) {
         let proxies: Arc<Mutex<HashMap<WindowId, MiniCanvasProxy>>> = Default::default();
 
-        {
-            let proxies = Arc::clone(&proxies);
-            thread::spawn(move || loop {
-                for (_, proxy) in proxies.lock().unwrap().iter() {
-                    proxy.animation_frame();
-                }
-                sleep(Duration::from_millis(16));
-            });
-        }
+        // {
+        //     let proxies = Arc::clone(&proxies);
+        //     thread::spawn(move || loop {
+        //         for (_, proxy) in proxies.lock().unwrap().iter() {
+        //             proxy.animation_frame();
+        //         }
+        //         sleep(Duration::from_millis(16));
+        //     });
+        // }
 
         struct MyWindow(pub Window);
         impl HasDisplayHandle for MyWindow {
@@ -123,6 +121,11 @@ impl WasiWinitEventLoop {
                     }
                     MainThreadAction::Spawn(f, res) => {
                         res.send(f()).unwrap();
+                    }
+                    MainThreadAction::Frame => {
+                        for (_, proxy) in self.proxies.iter() {
+                            proxy.animation_frame();
+                        }
                     }
                 }
             }
@@ -228,6 +231,10 @@ impl WasiWinitEventLoopProxy {
         receiver.await.unwrap()
     }
 
+    pub fn send_frame_event(&self) {
+        self.proxy.send_event(MainThreadAction::Frame).unwrap();
+    }
+
     pub async fn spawn<F, T>(&self, f: F) -> T
     where
         F: FnOnce() -> T + Send + Sync + 'static,
@@ -251,6 +258,7 @@ enum MainThreadAction {
         Box<dyn FnOnce() -> Box<dyn Any + Send + Sync> + Send + Sync>,
         oneshot::Sender<Box<dyn Any + Send + Sync>>,
     ),
+    Frame,
 }
 
 impl Debug for MainThreadAction {
@@ -262,6 +270,7 @@ impl Debug for MainThreadAction {
                 .field(arg1)
                 .finish(),
             Self::Spawn(_, _) => f.debug_tuple("Spawn").finish(),
+            Self::Frame => f.debug_tuple("Frame").finish(),
         }
     }
 }

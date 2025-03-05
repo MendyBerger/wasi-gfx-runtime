@@ -24,7 +24,9 @@ pub use crate::wasi::webgpu::surface::{
     FrameEvent, KeyEvent, PointerEvent, {CreateDesc as MiniCanvasDesc, ResizeEvent},
 };
 
+// TODO: rename to surface
 pub trait WasiMiniCanvasView: WasiView {
+    // TODO: rename to create_surface
     fn create_canvas(&self, desc: MiniCanvasDesc) -> MiniCanvas;
 }
 
@@ -141,7 +143,7 @@ impl MiniCanvas {
         let key_down_receiver = key_down_receiver.deactivate();
         let (canvas_resize_sender, canvas_resize_receiver) = async_broadcast::broadcast(5);
         let canvas_resize_receiver = canvas_resize_receiver.deactivate();
-        let (frame_sender, frame_receiver) = async_broadcast::broadcast(1);
+        let (frame_sender, frame_receiver) = async_broadcast::broadcast(10);
         let frame_receiver = frame_receiver.deactivate();
         Self {
             window,
@@ -213,7 +215,8 @@ impl MiniCanvasProxy {
         unwrap_unless_inactive(self.canvas_resize_sender.try_broadcast(event));
     }
     pub fn animation_frame(&self) {
-        unwrap_unless_inactive_or_full(self.frame_sender.try_broadcast(()));
+        println!("animation_frame");
+        unwrap_unless_inactive(self.frame_sender.try_broadcast(()));
     }
 }
 
