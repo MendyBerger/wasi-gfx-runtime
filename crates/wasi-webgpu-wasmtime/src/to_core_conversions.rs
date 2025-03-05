@@ -292,7 +292,7 @@ impl<'a> ToCore<wgpu_core::pipeline::FragmentState<'a>> for webgpu::GpuFragmentS
                     })
                     .unwrap_or_default(),
                 zero_initialize_workgroup_memory: true,
-                vertex_pulling_transform: false,
+                // vertex_pulling_transform: false,
             },
             targets: self
                 .targets
@@ -360,7 +360,7 @@ impl<'a> ToCore<wgpu_core::pipeline::VertexState<'a>> for webgpu::GpuVertexState
                     })
                     .unwrap_or_default(),
                 zero_initialize_workgroup_memory: true,
-                vertex_pulling_transform: false,
+                // vertex_pulling_transform: false,
             },
             buffers: self
                 .buffers
@@ -872,7 +872,7 @@ impl<'a> ToCore<wgpu_core::pipeline::ProgrammableStageDescriptor<'a>>
                 })
                 .unwrap_or_default(),
             zero_initialize_workgroup_memory: true,
-            vertex_pulling_transform: false,
+            // vertex_pulling_transform: false,
         }
     }
 }

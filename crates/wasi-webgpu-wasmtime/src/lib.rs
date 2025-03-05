@@ -4,7 +4,7 @@
 // - Remove all unwraps.
 // - Implement all the drop handlers.
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, sync::{Arc, Weak}};
 
 use wasi_graphics_context_wasmtime::{AbstractBuffer, DisplayApi, DrawApi};
 use wasmtime_wasi::WasiView;
@@ -143,6 +143,10 @@ pub trait MainThreadSpawner: Send + Sync + 'static {
     where
         F: FnOnce() -> T + Send + Sync + 'static,
         T: Send + Sync + 'static;
+
+    fn request_device_called(&self, _core_instance: Weak<wgpu_core::global::Global>, _adapter_id: wgpu_core::id::AdapterId) -> Option<wgpu_hal::OpenDevice<crate::Backend>> {
+        None
+    }
 }
 
 struct WebGpuSurface<GI, CS, I>
@@ -167,7 +171,7 @@ where
     fn get_current_buffer(&mut self) -> wasmtime::Result<AbstractBuffer> {
         let texture: wgpu_core::id::TextureId = (self.get_instance)()
             .as_ref()
-            .surface_get_current_texture::<crate::Backend>(self.surface_id.unwrap(), None)
+            .surface_get_current_texture(self.surface_id.unwrap(), None)
             .unwrap()
             .texture_id
             .unwrap();
@@ -179,7 +183,7 @@ where
     fn present(&mut self) -> wasmtime::Result<()> {
         (self.get_instance)()
             .as_ref()
-            .surface_present::<crate::Backend>(self.surface_id.unwrap())
+            .surface_present(self.surface_id.unwrap())
             .unwrap();
         Ok(())
     }
@@ -189,7 +193,7 @@ where
 
         let swapchain_capabilities = (self.get_instance)()
             .as_ref()
-            .surface_get_capabilities::<crate::Backend>(surface_id, self.adapter_id)
+            .surface_get_capabilities(surface_id, self.adapter_id)
             .unwrap();
         let swapchain_format = swapchain_capabilities.formats[0];
 
@@ -207,7 +211,7 @@ where
 
         (self.get_instance)()
             .as_ref()
-            .surface_configure::<crate::Backend>(surface_id, self.device_id, &config);
+            .surface_configure(surface_id, self.device_id, &config);
 
         self.surface_id = Some(surface_id);
     }

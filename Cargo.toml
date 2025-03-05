@@ -18,8 +18,9 @@ wasmtime = { version = "21.0", features = ['component-model'] }
 wasmtime-wasi = "21.0"
 anyhow = "1.0"
 winit = { version = "0.30", features = [ "android-native-activity" ] }
-wgpu-core = "22"
-wgpu-types = "22"
+wgpu-core = "23"
+wgpu-types = "23"
+wgpu-hal = "23"
 raw-window-handle = "0.6"
 async-trait = "0.1"
 rand = "0.8"
