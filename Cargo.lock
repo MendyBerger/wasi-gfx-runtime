@@ -1770,6 +1770,7 @@ dependencies = [
 [[package]]
 name = "naga"
 version = "23.0.0"
+source = "git+https://github.com/MendyBerger/wgpu.git?branch=expose-dx12-factory#d98660b9e673d4c995b1c7102430f86b0eb352aa"
 dependencies = [
  "arrayvec",
  "bit-set",
@@ -3734,6 +3735,7 @@ dependencies = [
 [[package]]
 name = "wgpu-core"
 version = "23.0.1"
+source = "git+https://github.com/MendyBerger/wgpu.git?branch=expose-dx12-factory#d98660b9e673d4c995b1c7102430f86b0eb352aa"
 dependencies = [
  "arrayvec",
  "bit-vec",
@@ -3757,6 +3759,7 @@ dependencies = [
 [[package]]
 name = "wgpu-hal"
 version = "23.0.1"
+source = "git+https://github.com/MendyBerger/wgpu.git?branch=expose-dx12-factory#d98660b9e673d4c995b1c7102430f86b0eb352aa"
 dependencies = [
  "android_system_properties",
  "arrayvec",
@@ -3799,6 +3802,7 @@ dependencies = [
 [[package]]
 name = "wgpu-types"
 version = "23.0.0"
+source = "git+https://github.com/MendyBerger/wgpu.git?branch=expose-dx12-factory#d98660b9e673d4c995b1c7102430f86b0eb352aa"
 dependencies = [
  "bitflags 2.6.0",
  "js-sys",

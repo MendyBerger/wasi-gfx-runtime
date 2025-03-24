@@ -1135,12 +1135,20 @@ impl<T: WasiWebGpuView> webgpu::HostGpuCommandEncoder for WasiWebGpuImpl<T> {
 
     fn copy_texture_to_texture(
         &mut self,
-        _self_: Resource<wgpu_core::id::CommandEncoderId>,
-        _source: webgpu::GpuImageCopyTexture,
-        _destination: webgpu::GpuImageCopyTexture,
-        _copy_size: webgpu::GpuExtent3D,
+        command_encoder: Resource<wgpu_core::id::CommandEncoderId>,
+        source: webgpu::GpuImageCopyTexture,
+        destination: webgpu::GpuImageCopyTexture,
+        copy_size: webgpu::GpuExtent3D,
     ) {
-        todo!()
+        let command_encoder_id = *self.table().get(&command_encoder).unwrap();
+        self.instance()
+            .command_encoder_copy_texture_to_texture(
+                command_encoder_id,
+                &source.to_core(self.table()),
+                &destination.to_core(self.table()),
+                &copy_size.to_core(self.table()),
+            )
+            .unwrap();
     }
 
     fn clear_buffer(
